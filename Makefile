@@ -46,6 +46,7 @@ size:
 SERVICE_NAME := cppserver
 SERVICE_FILE := $(SERVICE_NAME).service
 SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
+SERVICE_DIR  := /etc/CppServer
 
 # Install the server
 install: $(BUILD_DIR)/$(TARGET)
@@ -70,19 +71,21 @@ install: $(BUILD_DIR)/$(TARGET)
 uninstall:
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
-	@sudo rm -rf $(SERVICE_DEST)
+	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
 reinstall: $(BUILD_DIR)/$(TARGET)
 # First uninstall
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
-	@sudo rm -rf $(SERVICE_DEST)
+	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
 # Then reinstall
 	@sudo mkdir -p /etc/CppServer
 	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
+	@sudo mkdir -p /etc/CppServer/site
+	@sudo cp -r site/* /etc/CppServer/site/
 
 	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload

@@ -2,6 +2,11 @@
 
 #include "server.hpp"
 
+#include <unistd.h>
+#include <limits.h>
+#include <fstream>
+#include <iostream>
+
 int main(int argc, char** argv)
 {
     (void) argc;

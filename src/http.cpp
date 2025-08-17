@@ -6,7 +6,7 @@ HTTPRequestParser* HTTPResponseGenerator::parser;
 
 HTTPResponseGenerator::HTTPResponseGenerator(std::shared_ptr<FileCache> cache)
 {
-    this->HTTP_HEADER_SIZE = std::strlen(this->HTTP_HEADER_TEMPLATE) - 5;
+    this->HTTP_HEADER_SIZE = std::strlen(this->HTTP_HEADER_TEMPLATE);
     this->cache = cache;
 
     /* Initialize the parser. */

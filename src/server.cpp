@@ -58,7 +58,7 @@ Server::Server(std::string ip, short port)
     _log << "Server UP." << endline << endline;
 
     /* Flush the output. */
-    std::cout << std::flush;
+    _log << std::flush;
 }
 
 Server::~Server()
