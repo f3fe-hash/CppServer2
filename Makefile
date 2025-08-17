@@ -2,7 +2,7 @@ CXX := g++
 
 DEBUG = #-g
 
-CXXVERSION := 11
+CXXVERSION := 17
 
 CXXFLAGS := -Wall -Wextra -Wpedantic -O3 -Os -funroll-loops -std=c++$(CXXVERSION)
 
@@ -48,7 +48,9 @@ SERVICE_FILE := $(SERVICE_NAME).service
 SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
 SERVICE_DIR  := /etc/CppServer
 
+#
 # Install the server
+#
 install: $(BUILD_DIR)/$(TARGET)
 	@sudo mkdir -p /etc/CppServer
 	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
@@ -67,13 +69,18 @@ install: $(BUILD_DIR)/$(TARGET)
 # Then reboot
 	@sudo reboot
 
+#
 # Uninstall the server
+#
 uninstall:
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
 	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
+#
+# Do a re-install
+#
 reinstall: $(BUILD_DIR)/$(TARGET)
 # First uninstall
 	@sudo systemctl stop    $(SERVICE_NAME)

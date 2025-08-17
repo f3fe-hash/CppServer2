@@ -12,8 +12,8 @@
 
 std::string SERVER_IP      = "192.168.1.39";    // Server IP to test
 std::string SERVER_PAGE    = "/";               // Server page to test
-constexpr int SERVER_PORT  =  8080;             // Server port to test
-constexpr int NUM_REQUESTS = 1000;              // Number of requests to test the server with
+constexpr int SERVER_PORT  = 8080;              // Server port to test
+constexpr int NUM_REQUESTS = 30000;             // Number of requests to test the server with
 
 double time_diff(struct timeval start, struct timeval end)
 {
