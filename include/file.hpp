@@ -1,54 +1,52 @@
 #ifndef __FILE_HPP__
 #define __FILE_HPP__
 
-#include <unordered_map>
-#include <vector>
-
-#include <thread>
-#include <atomic>
-#include <mutex>
-#include <shared_mutex>
-
-#include <string>
-#include <cstring>
-
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <unordered_map>
+#include <shared_mutex>
+#include <mutex>
+#include <thread>
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <condition_variable>
 
-#include "types.h"
 #include "utils.hpp"
 #include "log.hpp"
 
-using FileDescriptor = struct FileDescriptor
+namespace fs = std::filesystem;
+
+typedef struct
 {
-    uint32_t offset;
-    uint32_t size;
-};
+    std::string data;
+    std::mutex data_mutex;
+    std::chrono::system_clock::time_point last_loaded;
+    fs::file_time_type last_modified;
+} FileCacheEntry;
 
 class FileCache
 {
-private:
-    std::unordered_map<std::string, FileDescriptor> fileMap;
-    std::unordered_map<std::string, std::shared_mutex> fileLocks;
-    std::mutex lockMapMutex;
+    std::unordered_map<std::string, std::shared_ptr<FileCacheEntry>> cache_map;
+    std::shared_mutex map_mutex;
 
-    std::vector<std::string> cachedFiles;
-    std::thread updater;
+    int refresh_interval;
+    std::atomic<bool> stop_flag;
+    std::thread refresher_thread;
+    std::condition_variable_any cv;
 
-    bool running;
+    std::shared_ptr<FileCacheEntry> createEntry(const std::string& path);
 
-    uint8_t* cache;
-    uint32_t cacheSize;
-    uint32_t offset;
-
-    std::mutex cacheMutex;
+    void refreshLoop();
+    void refreshAll();
+    void loadFile(const std::string& path, FileCacheEntry& entry);
 
 public:
-    FileCache(uint32_t cacheSize);
+    FileCache(int refresh_interval_seconds = 10);
     ~FileCache();
 
-    void update();
-    std::pair<std::string, uint32_t> readFile(const std::string& fileName);
+    std::string readFile(const std::string& path);
 };
 
 #endif

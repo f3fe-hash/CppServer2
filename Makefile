@@ -1,10 +1,8 @@
 CXX := g++
 
-DEBUG = #-g
-
 CXXVERSION := 17
 
-CXXFLAGS := -Wall -Wextra -Wpedantic -O3 -Os -funroll-loops -std=c++$(CXXVERSION)
+CXXFLAGS := -Wall -Wextra -Wpedantic -Ofast -Os -static -funroll-loops -std=c++$(CXXVERSION)
 
 BUILD_DIR   := build
 INCLUDE_DIR := include
@@ -48,6 +46,8 @@ SERVICE_FILE := $(SERVICE_NAME).service
 SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
 SERVICE_DIR  := /etc/CppServer
 
+SOURCE_LINK := https://github.com/f3fe-hash/CppServer2.git
+
 #
 # Install the server
 #
@@ -79,16 +79,33 @@ uninstall:
 	@sudo systemctl daemon-reload
 
 #
-# Do a re-install
+# Do a full re-install
 #
-reinstall: $(BUILD_DIR)/$(TARGET)
-# First uninstall
+reinstall-full:
+# First uninstall service
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
 	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
-# Then reinstall
+# Remove existing source, clone fresh, rebuild and install
+	@cd .. && \
+	rm -rf CppServer2 && \
+	git clone $(SOURCE_LINK) && \
+	cd CppServer2 && \
+	make install
+
+#
+# Do a basic re-compile and service restart
+#
+reinstall-basic: $(BUILD_DIR)/$(TARGET)
+# First uninstall service
+	@sudo systemctl stop    $(SERVICE_NAME)
+	@sudo systemctl disable $(SERVICE_NAME)
+	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
+	@sudo systemctl daemon-reload
+
+# Then reinstall service
 	@sudo mkdir -p /etc/CppServer
 	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
 	@sudo mkdir -p /etc/CppServer/site

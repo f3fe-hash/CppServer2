@@ -2,6 +2,7 @@
 #define __HTTP_HPP__
 
 #include <string>
+#include <cstring>
 
 #include <regex>
 #include <unordered_map>
@@ -60,13 +61,13 @@ public:
 
     _throw _wur
     static inline
-    HTTPResponse _generate_response(std::string data, size_t size)
+    HTTPResponse _generate_response(std::string data)
     {
         /* Generate the string. */
-        size_t total_size = size + HTTPResponseGenerator::HTTP_HEADER_SIZE;
+        size_t total_size = data.size() + HTTPResponseGenerator::HTTP_HEADER_SIZE;
         char* res = new char[total_size];
         std::snprintf(res, total_size, HTTPResponseGenerator::HTTP_HEADER_TEMPLATE,
-            size, data.c_str());
+            data.size(), data.c_str());
         
         return {std::string(res), total_size};
     }
@@ -82,7 +83,7 @@ public:
 
         // Protect against ..
         if (req.path.find("..") != std::string::npos)
-            return HTTPResponseGenerator::_generate_response("403 Forbidden", 13);
+            return HTTPResponseGenerator::_generate_response("403 Forbidden");
         
         // Ensure proper path
         std::string path;
@@ -90,9 +91,9 @@ public:
             path = "index.html";
         else
             path = req.path[0] == '/' ? req.path.substr(1) : req.path;
-        auto f = cache->readFile("site/" + path);
+        std::string dat = cache->readFile("site/" + path);
 
-        return HTTPResponseGenerator::_generate_response(f.first, f.second);
+        return HTTPResponseGenerator::_generate_response(dat);
     }
 };
 
