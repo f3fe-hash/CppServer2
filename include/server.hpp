@@ -19,9 +19,13 @@
 
 #include <chrono>
 
-#include "types.h"
 #include "utils.hpp"
+#include "log.hpp"
 #include "file.hpp"
+#include "http.hpp"
+
+#define CACHE_SIZE 4096
+#define READ_BUFF_SIZE 8192
 
 /* Contains 1 client. */
 using Client = struct
@@ -42,11 +46,12 @@ class Server
     static sockaddr_in* servaddr;
 
     static std::atomic<bool> running;
+    static std::atomic<HTTPResponseGenerator *> http;
 
-    static std::atomic<FileCache *> cache;
+    static std::shared_ptr<FileCache> cache;
 
     /* Handle a client */
-    _throw _nnull(1)
+    _nnull(1)
     static inline
     void handle_client(Client* __restrict__ cli);
 

@@ -10,7 +10,7 @@
 
 #define BUFFER_SIZE 8192
 
-std::string SERVER_IP      = "192.168.1.30";    // Server IP to test
+std::string SERVER_IP      = "192.168.1.39";    // Server IP to test
 std::string SERVER_PAGE    = "/";               // Server page to test
 constexpr int SERVER_PORT  =  8080;             // Server port to test
 constexpr int NUM_REQUESTS = 30000;             // Number of requests to test the server with
@@ -23,10 +23,13 @@ double time_diff(struct timeval start, struct timeval end)
 
 int main(int argc, char** argv)
 {
+    (void) argc;
+    (void) argv;
+
     double total_time = 0.00;
 
     // Hide console cursor
-    printf("\e[?25l"); 
+    printf("\033[?25l"); 
 
     // --- Build HTTP Request ---
     char req[512];
@@ -105,7 +108,7 @@ int main(int argc, char** argv)
     gettimeofday(&total_end, NULL);
 
     // Show console cursor
-    printf("\e[?25h\n");
+    printf("\033[?25h\n");
 
     double total_elapsed_ms = time_diff(total_start, total_end);
     double total_elapsed_sec = total_elapsed_ms / 1000.0;

@@ -15,6 +15,8 @@ TARGET := server
 SRCS := $(wildcard $(SRC_DIR)/*.cpp)
 OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.cpp.o,$(SRCS))
 
+.PHONY: all run test clean size
+
 all: $(BUILD_DIR)/$(TARGET)
 
 $(BUILD_DIR)/$(TARGET): $(OBJS) $(BUILD_DIR)
@@ -36,7 +38,38 @@ test:
 	@./test
 
 clean:
-	@rm -rf $(BUILD_DIR) test
+	@rm -rf $(BUILD_DIR) logs test
 
 size:
 	@wc -c $(BUILD_DIR)/$(TARGET)
+
+SERVICE_NAME := cppserver
+SERVICE_FILE := $(SERVICE_NAME).service
+SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
+
+# Install the server
+install: $(BUILD_DIR)/$(TARGET)
+	@sudo mkdir /etc/CppServer
+	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
+
+	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
+	@sudo systemctl daemon-reload
+	@sudo systemctl enable $(SERVICE_NAME)
+	@sudo systemctl start  $(SERVICE_NAME)
+	@sudo systemctl status $(SERVICE_NAME)
+
+# Create an alias to check the server's status
+	@echo "alias status='sudo systemctl status $(SERVICE_NAME)'" > ~/.bash_aliases
+
+# Uninstall the server
+uninstall:
+	@sudo systemctl stop    $(SERVICE_NAME)
+	@sudo systemctl disable $(SERVICE_NAME)
+	@sudo rm -rf $(SERVICE_DEST)
+	@sudo systemctl daemon-reload
+
+# Check the status of the server
+status:
+	@sudo systemctl status $(SERVICE_NAME)
+	@echo "-------------------------------------"
+	@cat /etc/CppServer/logs/log.txt

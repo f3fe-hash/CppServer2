@@ -12,6 +12,7 @@
 
 #include "types.h"
 #include "utils.hpp"
+#include "log.hpp"
 
 using FileDescriptor = struct FileDescriptor
 {
@@ -30,7 +31,8 @@ public:
     FileCache(uint32_t cacheSize);
     ~FileCache();
 
-    std::string readFile(std::string fileName);
+    _wur
+    std::pair<std::string, uint32_t> readFile(std::string fileName);
 };
 
 #endif
