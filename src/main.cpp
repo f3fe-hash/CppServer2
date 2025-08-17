@@ -9,7 +9,7 @@ int main(int argc, char** argv)
 
     Server* server = new Server("192.168.1.39", 8080);
     server->accept_clients();
-    std::this_thread::sleep_for(std::chrono::seconds(100));
+    while (true);
 
     delete server;
     

@@ -49,8 +49,9 @@ SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
 
 # Install the server
 install: $(BUILD_DIR)/$(TARGET)
-	@sudo mkdir /etc/CppServer
+	@sudo mkdir -p /etc/CppServer
 	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
+	@sudo cp -r site/ /etc/CppServer/
 
 	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
@@ -61,12 +62,39 @@ install: $(BUILD_DIR)/$(TARGET)
 # Create an alias to check the server's status
 	@echo "alias status='sudo systemctl status $(SERVICE_NAME)'" > ~/.bash_aliases
 
+# Then reboot
+	@sudo reboot
+
 # Uninstall the server
 uninstall:
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
 	@sudo rm -rf $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
+
+reinstall: $(BUILD_DIR)/$(TARGET)
+# First uninstall
+	@sudo systemctl stop    $(SERVICE_NAME)
+	@sudo systemctl disable $(SERVICE_NAME)
+	@sudo rm -rf $(SERVICE_DEST)
+	@sudo systemctl daemon-reload
+
+# Then reinstall
+	@sudo mkdir -p /etc/CppServer
+	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
+
+	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
+	@sudo systemctl daemon-reload
+	@sudo systemctl enable $(SERVICE_NAME)
+	@sudo systemctl start  $(SERVICE_NAME)
+	@sudo systemctl status $(SERVICE_NAME)
+
+# Finally reboot
+	@sudo reboot
+
+restart:
+	@sudo systemctl restart $(SERVICE_NAME)
+	@sudo systemctl status  $(SERVICE_NAME)
 
 # Check the status of the server
 status:
