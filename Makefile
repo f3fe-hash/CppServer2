@@ -51,7 +51,8 @@ SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
 install: $(BUILD_DIR)/$(TARGET)
 	@sudo mkdir -p /etc/CppServer
 	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
-	@sudo cp -r site/ /etc/CppServer/
+	@sudo mkdir -p /etc/CppServer/site
+	@sudo cp -r site/* /etc/CppServer/site/
 
 	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
