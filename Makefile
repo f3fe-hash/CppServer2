@@ -114,7 +114,7 @@ force-key-gen:
 
 SERVICE_NAME := cppserver
 SERVICE_FILE := install/$(SERVICE_NAME).service
-SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
+SERVICE_DEST := /etc/systemd/system/$(SERVICE_NAME).service
 SERVICE_DIR  := /etc/CppServer
 SOURCE_LINK  := https://github.com/f3fe-hash/CppServer2.git
 
