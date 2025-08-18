@@ -3,25 +3,24 @@
 Log _log("log.log");
 
 /* Define static variables. */
-int                      Server::servfd   = 0;
-sockaddr_in*             Server::servaddr = nullptr;
+int         Server::servfd   = 0;
+bool        Server::running  = true;
+sockaddr_in Server::servaddr;
 
-std::atomic<bool>                    Server::running(true);
 std::atomic<HTTPResponseGenerator *> Server::http;
-
 std::shared_ptr<FileCache> Server::cache;
 
 #ifdef USE_HTTPS
 SSL_CTX* Server::ssl_ctx = nullptr;
 #endif
 
-Server::Server(std::string ip, short port)
+Server::Server(std::string_view ip, const short port)
 {
     /* Hide cursor. Only in std::cout. */
     std::cout << "\033[?25l" << std::flush;
 
     Server::cache = std::make_shared<FileCache>(CACHE_SIZE);
-    Server::http  = new HTTPResponseGenerator(Server::cache);
+    Server::http  = new HTTPResponseGenerator(std::move(Server::cache));
 
     /* Initialize OpenSSL. */
 #ifdef USE_HTTPS
@@ -54,30 +53,29 @@ Server::Server(std::string ip, short port)
         _log << "Successfully created socket" << endline;
     
     
-    int opt = 1;
+    const int opt = 1;
     if (_unlikely(setsockopt(Server::servfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0))
         err("Failed to set socked options")
     else
         _log << "Successfully set socket options" << endline;
     
     /* Create the address. */
-    Server::servaddr = new sockaddr_in();
-    Server::servaddr->sin_family      = AF_INET;
-    Server::servaddr->sin_addr.s_addr = inet_addr(ip.c_str());
-    Server::servaddr->sin_port        = htons(port);
+    Server::servaddr.sin_family      = AF_INET;
+    Server::servaddr.sin_addr.s_addr = inet_addr(ip.data());
+    Server::servaddr.sin_port        = htons(port);
 
     /* Ensure IP address is valid. */
-    if (_unlikely(Server::servaddr->sin_addr.s_addr == INADDR_NONE))
-        err("Invalid IP address");
+    if (_unlikely(Server::servaddr.sin_addr.s_addr == INADDR_NONE))
+        _log << "Invalid IP address" << endline;
 
     /* Bind the address to the socket. */
-    if (_unlikely(bind(Server::servfd, (sockaddr *)Server::servaddr, sizeof(*Server::servaddr)) != 0))
+    if (_unlikely(bind(Server::servfd, (sockaddr *)&Server::servaddr, sizeof(Server::servaddr)) != 0))
         err("Failed to bind socket")
     else
         _log << "Successfully bound socket" << endline;
 
     /* Listen on the socket. */
-    if (_unlikely(listen(Server::servfd, 5) != 0))
+    if (_unlikely(listen(Server::servfd, BACKLOG) != 0))
         err("Failed to listen on socket")
     else
         _log << "Server listening" << endline;
@@ -105,9 +103,6 @@ Server::~Server()
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     _log << "Done." << endline;
 
-    /* Deallocate the server's address. */
-    delete servaddr;
-
     std::cout << "\033[?25h";
 
     /* Flush the output and show cursor. */
@@ -125,7 +120,7 @@ void Server::accept_clients()
         {
             for (int clinum = 0; Server::running; clinum++)
             {
-                Client* cli = new Client();
+                auto* cli = new Client;
 
                 /* Accept a new client connection. */
                 cli->connfd = accept(Server::servfd, (sockaddr *)&cli->connaddr, (socklen_t *)&len);
@@ -150,7 +145,7 @@ void Server::accept_clients()
 
 void Server::handle_client(Client* __restrict__ cli)
 {
-    char buff[READ_BUFF_SIZE] = {};
+    char buff[READ_BUFF_SIZE];
     size_t size = 0;
 
 #ifdef USE_HTTPS
@@ -199,7 +194,8 @@ void Server::handle_client(Client* __restrict__ cli)
         return;
     }
 
-    auto d = Server::http.load()->generate_response(std::string(buff, size));
+    std::string_view request(buff, size);
+    auto d = Server::http.load()->generate_response(request);
 
 #ifdef USE_HTTPS
     if (_unlikely(SSL_write(ssl, d.first.c_str(), d.second) <= 0))

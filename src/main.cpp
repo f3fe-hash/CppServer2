@@ -12,7 +12,7 @@ int main(int argc, char** argv)
     (void) argc;
     (void) argv;
 
-    Server* server = new Server("192.168.1.39", 8080);
+    Server* server = new Server(std::string(argv[1]), atoi(argv[2]));
     server->accept_clients();
     while (true);
 

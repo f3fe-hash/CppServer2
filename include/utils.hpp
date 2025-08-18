@@ -7,6 +7,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <cerrno>
+#include <cstring>
+
 #include "types.h"
 
 using namespace std::chrono;
@@ -18,7 +21,7 @@ std::string _now();
 #define err(x) \
 { \
     std::cerr << x << " (" << _now() << ")" << "\033[?25h" << std::endl; \
-    throw std::runtime_error(x); \
+    throw std::runtime_error(std::string(x) + "(" + std::strerror(errno) + ")"); \
 }
 
 #endif

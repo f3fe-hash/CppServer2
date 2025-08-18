@@ -1,4 +1,11 @@
 # ---------------------------
+# General config
+# ---------------------------
+
+IP   := 192.168.1.39
+PORT := 8080
+
+# ---------------------------
 # HTTPS
 # ---------------------------
 
@@ -53,8 +60,8 @@ $(BUILD_DIR):
 # ---------------------------
 
 run:
-#@clear
-	@./$(BUILD_DIR)/$(TARGET)
+	@clear
+	@./$(BUILD_DIR)/$(TARGET) $(IP) $(PORT)
 
 test:
 	@$(CXX) test/test.cpp -O3 -funroll-loops -static -o test/test
@@ -73,10 +80,14 @@ show:
 	@printf "\033[?25h"
 
 # ---------------------------
-# Generate HTTPS Certificate
+# Generate HTTPS Certificates
 # ---------------------------
 
-gen-keys:
+COUNTRY := US
+STATE   := Maryland
+CITY    := City
+
+key-gen:
 	@if [ -f $(KEY) ] && [ -f $(CERT) ]; then \
 		echo "Keys already exist at $(KEY) and $(CERT). Skipping."; \
 	else \
@@ -84,17 +95,17 @@ gen-keys:
 		mkdir -p $(dir $(KEY)); \
 		openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
 			-keyout $(KEY) -out $(CERT) -nodes \
-			-subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"; \
+			-subj "/C=$(COUNTRY)/ST=$(STATE)/L=$(CITY)/O=Organization/OU=Unit/CN=$(IP)";
 		echo "Done: $(KEY) and $(CERT) generated."; \
 	fi
 
 
-force-gen-keys:
+force-key-gen:
 	@echo "Generating self-signed certificate..."
 	@mkdir -p $(dir $(KEY))
 	@openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
 		-keyout $(KEY) -out $(CERT) -nodes \
-		-subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"
+		-subj "/C=$(COUNTRY)/ST=$(STATE)/L=$(CITY)/O=Organization/OU=Unit/CN=$(IP)";
 	@echo "Done: $(KEY) and $(CERT) generated."
 
 # ---------------------------
@@ -102,7 +113,7 @@ force-gen-keys:
 # ---------------------------
 
 SERVICE_NAME := cppserver
-SERVICE_FILE := $(SERVICE_NAME).service
+SERVICE_FILE := install/$(SERVICE_NAME).service
 SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
 SERVICE_DIR  := /etc/CppServer
 SOURCE_LINK  := https://github.com/f3fe-hash/CppServer2.git
@@ -136,14 +147,10 @@ uninstall:
 	@sudo systemctl daemon-reload
 
 update:
-	@sudo systemctl stop    $(SERVICE_NAME)
-	@sudo systemctl disable $(SERVICE_NAME)
-	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
-	@sudo systemctl daemon-reload
-
-	@cd .. && \
-	rm -rf CppServer2 && \
-	git clone $(SOURCE_LINK)
+	@chmod +x install/update.sh
+	@./install/update.sh \
+	$(SERVICE_NAME) $(SERVICE_DEST) \
+	$(SERVICE_DIR) $(SOURCE_LINK)
 
 reinstall: $(BUILD_DIR)/$(TARGET)
 	@sudo systemctl stop    $(SERVICE_NAME)
@@ -178,7 +185,7 @@ restart:
 status:
 	@sudo systemctl status $(SERVICE_NAME)
 	@echo "-------------------------------------"
-	@cat /etc/CppServer/logs/log.txt
+	@cat /etc/CppServer/logs/log.txt | tail -n 20
 
 .PHONY: all run test clean deep-clean gen-keys force-gen-keys \
         size install uninstall reinstall-full reinstall-basic restart status

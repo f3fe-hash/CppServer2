@@ -1,8 +1,6 @@
 #include "http.hpp"
 
-size_t HTTPResponseGenerator::HTTP_HEADER_SIZE;
 std::shared_ptr<FileCache> HTTPResponseGenerator::cache;
-HTTPRequestParser* HTTPResponseGenerator::parser;
 
 std::unordered_map<int, std::string> HTTPResponseGenerator::HTTPCodes =
 {
@@ -12,48 +10,31 @@ std::unordered_map<int, std::string> HTTPResponseGenerator::HTTPCodes =
 
 HTTPResponseGenerator::HTTPResponseGenerator(std::shared_ptr<FileCache> cache)
 {
-    this->HTTP_HEADER_SIZE = std::strlen(this->HTTP_HEADER_TEMPLATE);
-    this->cache = cache;
-
-    /* Initialize the parser. */
-    this->parser = new HTTPRequestParser();
+    HTTPResponseGenerator::cache = cache;
 }
 
-HTTPResponseGenerator::~HTTPResponseGenerator()
-{}
-
-HTTPRequestParser::HTTPRequestParser()
-{
-    this->httpRequestRegex = std::regex(
-    R"(^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s+(\S+)\s+HTTP/(\d\.\d)\r?\n((?:[^\r\n]+:\s*[^\r\n]*\r?\n)*)\r?\n(.*)?)",
-    std::regex::ECMAScript | std::regex::icase);
-
-    this->headerRegex = std::regex(
-    R"(([^:\r\n]+):\s*([^\r\n]+))"
-    );
-}
-
-HTTPRequestParser::~HTTPRequestParser()
-{}
-
-HTTPRequest HTTPRequestParser::parseRequest(std::string req)
+HTTPRequest HTTPRequestParser::parseRequest(std::string_view req)
 {
     HTTPRequest preq;
     preq.request = req;
+    preq.headers.reserve(8);
 
+    std::string req_copy(req);  // Needed for regex matching (null-terminated)
     std::smatch matches;
-    if (std::regex_match(req, matches, this->httpRequestRegex))
+
+    if (_likely(std::regex_match(req_copy, matches, httpRequestRegex)))
     {
-        /* Query is in matches[2] as well as path. */
-        preq.method       = matches[1];
-        preq.path         = matches[2];
-        preq.http_version = matches[3];
+        preq.method       = matches[1].str();
+        preq.path         = matches[2].str();
+        preq.http_version = matches[3].str();
 
-        std::string headers_str(matches[4]);
+        const std::string& headers_str = matches[4]; // ✅ Must be std::string
 
-        /* Read the headers. */
-        for (std::sregex_iterator it(headers_str.begin(), headers_str.end(), this->headerRegex), end; it != end; ++it)
-            preq.headers.insert({(*it)[1], (*it)[2]});
+        for (std::sregex_iterator it(headers_str.begin(), headers_str.end(), headerRegex), end;
+             it != end; ++it)
+        {
+            preq.headers.emplace((*it)[1].str(), (*it)[2].str());
+        }
     }
 
     return preq;

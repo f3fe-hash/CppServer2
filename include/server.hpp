@@ -23,9 +23,9 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#warning "HTTPS is enabled"
+#pragma message("HTTPS is enabled")
 #else
-#warning "HTTPS is disabled"
+#pragma message("HTTPS is disabled")
 #endif
 
 #include "utils.hpp"
@@ -35,6 +35,8 @@
 
 #define CACHE_SIZE 4096
 #define READ_BUFF_SIZE 8192
+
+#define BACKLOG 128
 
 /* Contains 1 client. */
 using Client = struct
@@ -52,9 +54,9 @@ using Client = struct
 class Server
 {
     static int servfd;
-    static sockaddr_in* servaddr;
+    static sockaddr_in servaddr;
 
-    static std::atomic<bool> running;
+    static bool running;
     static std::atomic<HTTPResponseGenerator *> http;
 
     static std::shared_ptr<FileCache> cache;
@@ -69,7 +71,7 @@ class Server
     void handle_client(Client* __restrict__ cli);
 
 public:
-    Server(std::string ip, short port);
+    Server(std::string_view ip, const short port);
     ~Server();
 
     _throw

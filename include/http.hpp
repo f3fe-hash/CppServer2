@@ -25,53 +25,55 @@ typedef struct
     std::unordered_map<std::string, std::string> headers;
 
     std::string payload;
-    size_t payload_size;
 } HTTPRequest;
 
 class HTTPRequestParser
 {
-    std::regex httpRequestRegex;
-    std::regex headerRegex;
+    static inline const std::regex httpRequestRegex = std::regex(
+        "^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\\s+(\\S+)\\s+HTTP/(\\d\\.\\d)\\r?\\n"
+        "((?:[^\\r\\n]+:\\s*[^\\r\\n]*\\r?\\n)*)\\r?\\n([\\s\\S]*)",
+        std::regex::ECMAScript | std::regex::icase | std::regex_constants::optimize);
 
+    static inline const std::regex headerRegex = std::regex(
+        "([^:\\r\\n]+):\\s*(.*)",
+        std::regex::ECMAScript | std::regex_constants::optimize);
+    
 public:
-    HTTPRequestParser();
-    ~HTTPRequestParser();
+    HTTPRequestParser() = default;
+    ~HTTPRequestParser() = default;
 
-    HTTPRequest parseRequest(std::string req);
+    HTTPRequest parseRequest(std::string_view req);
 };
 
 class HTTPResponseGenerator
 {
-    static constexpr const char* HTTP_HEADER_TEMPLATE =
-    "HTTP/1.1 %d %s\r\n"
-    "Content-Type: %s; charset=UTF-8\r\n"
-    "Content-Length: %lu\r\n"
-    "Connection: close\r\n"
-    "\r\n%s";
-
-    static size_t HTTP_HEADER_SIZE;
-
     static std::shared_ptr<FileCache> cache;
 
-    static HTTPRequestParser* parser;
+    static inline HTTPRequestParser parser;
 
     static std::unordered_map<int, std::string> HTTPCodes;
 
 public:
     HTTPResponseGenerator(std::shared_ptr<FileCache> cache);
-    ~HTTPResponseGenerator();
+    ~HTTPResponseGenerator() = default;
 
     _throw _wur
     static inline
-    HTTPResponse _generate_response(std::string data, std::string contentType, int errCode)
+    HTTPResponse _generate_response(std::string_view data, std::string_view contentType, int errCode)
     {
+        auto it = HTTPCodes.find(errCode);
+        const std::string_view msg = (it != HTTPCodes.end()) ? it->second : "Unknown";
+
         /* Generate the string. */
-        size_t total_size = data.size() + HTTPResponseGenerator::HTTP_HEADER_SIZE;
-        char* res = new char[total_size];
-        std::snprintf(res, total_size, HTTPResponseGenerator::HTTP_HEADER_TEMPLATE,
-            errCode, HTTPResponseGenerator::HTTPCodes[errCode].c_str(), contentType.c_str(), data.size(), data.c_str());
-        
-        return {std::string(res), total_size};
+        std::ostringstream oss;
+        oss << "HTTP/1.1 " << errCode << " " << msg << "\r\n"
+            << "Content-Type: " << contentType << "; charset=UTF-8\r\n"
+            << "Content-Length: " << data.size() << "\r\n"
+            << "Connection: close\r\n\r\n"
+            << data;
+
+        std::string res = oss.str();
+        return {std::move(res), res.size()};
     }
 
     //
@@ -79,9 +81,9 @@ public:
     //
     _wur
     static inline
-    HTTPResponse generate_response(std::string data)
+    HTTPResponse generate_response(std::string_view data)
     {
-        HTTPRequest req = HTTPResponseGenerator::parser->parseRequest(data);
+        HTTPRequest req = HTTPResponseGenerator::parser.parseRequest(data);
 
         // Protect against ..
         if (req.path.find("..") != std::string::npos)
@@ -93,9 +95,8 @@ public:
             path = "index.html";
         else
             path = req.path[0] == '/' ? req.path.substr(1) : req.path;
-        std::string dat = cache->readFile("site/" + path);
 
-        return HTTPResponseGenerator::_generate_response(dat, "text/html", 200);
+        return HTTPResponseGenerator::_generate_response(cache->readFile("site/" + path), "text/html", 200);
     }
 };
 
