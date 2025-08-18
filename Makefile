@@ -31,12 +31,11 @@ run:
 	@./$(BUILD_DIR)/$(TARGET)
 
 test:
-	@$(CXX) $(CXXFLAGS) test.cpp -o test
-	@clear
-	@./test
+	@$(CXX) test/test.cpp -O3 -funroll-loops -static -o test/test
+	@./test/test
 
 clean:
-	@rm -rf $(BUILD_DIR) logs test
+	@rm -rf $(BUILD_DIR) logs test/test
 
 size:
 	@wc -c $(BUILD_DIR)/$(TARGET)

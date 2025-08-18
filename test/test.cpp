@@ -110,13 +110,13 @@ int main(int argc, char** argv)
     // Show console cursor
     printf("\033[?25h\n");
 
-    double total_elapsed_ms = time_diff(total_start, total_end);
-    double total_elapsed_sec = total_elapsed_ms / 1000.0;
+    double total_elapsed_us = time_diff(total_start, total_end);
+    double total_elapsed_sec = total_elapsed_us / 1e6;
     double req_per_sec = NUM_REQUESTS / total_elapsed_sec;
 
-    printf("=== Total time for %d requests: %.2f ms ===\n", NUM_REQUESTS, total_time / 1000);
+    printf("=== Total wall time for %d requests: %.2f ms ===\n", NUM_REQUESTS, total_elapsed_us / 1000);
     printf("=== Average latency per request: %.2f µs ===\n", total_time / NUM_REQUESTS);
-    printf("=== Overall throughput: %.2f requests / ms ===\n", req_per_sec);
+    printf("=== Overall throughput: %.2f requests / sec ===\n", req_per_sec);
 
     return 0;
 }
