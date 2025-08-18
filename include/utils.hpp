@@ -17,7 +17,7 @@ std::string _now();
 /* Handle an error. */
 #define err(x) \
 { \
-    std::cerr << x << " (" << _now() << ")" << std::endl; \
+    std::cerr << x << " (" << _now() << ")" << "\033[?25h" << std::endl; \
     throw std::runtime_error(x); \
 }
 

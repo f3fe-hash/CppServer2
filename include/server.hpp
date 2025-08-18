@@ -19,6 +19,15 @@
 
 #include <chrono>
 
+#ifdef USE_HTTPS
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#warning "HTTPS is enabled"
+#else
+#warning "HTTPS is disabled"
+#endif
+
 #include "utils.hpp"
 #include "log.hpp"
 #include "file.hpp"
@@ -49,6 +58,10 @@ class Server
     static std::atomic<HTTPResponseGenerator *> http;
 
     static std::shared_ptr<FileCache> cache;
+
+#ifdef USE_HTTPS
+    static SSL_CTX* ssl_ctx;
+#endif
 
     /* Handle a client */
     _nnull(1)

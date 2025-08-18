@@ -11,6 +11,10 @@ std::atomic<HTTPResponseGenerator *> Server::http;
 
 std::shared_ptr<FileCache> Server::cache;
 
+#ifdef USE_HTTPS
+SSL_CTX* Server::ssl_ctx = nullptr;
+#endif
+
 Server::Server(std::string ip, short port)
 {
     /* Hide cursor. Only in std::cout. */
@@ -18,6 +22,29 @@ Server::Server(std::string ip, short port)
 
     Server::cache = std::make_shared<FileCache>(CACHE_SIZE);
     Server::http  = new HTTPResponseGenerator(Server::cache);
+
+    /* Initialize OpenSSL. */
+#ifdef USE_HTTPS
+    SSL_load_error_strings();
+    OpenSSL_add_ssl_algorithms();
+
+    const SSL_METHOD *method = TLS_server_method();
+    ssl_ctx = SSL_CTX_new(method);
+    if (!ssl_ctx)
+        err("Unable to create SSL context");
+
+    /* Load certificate and private key. */
+    if (_unlikely(SSL_CTX_use_certificate_file(ssl_ctx, CERT, SSL_FILETYPE_PEM) <= 0))
+        err("Failed to load certificate");
+
+    if (_unlikely(SSL_CTX_use_PrivateKey_file(ssl_ctx, KEY, SSL_FILETYPE_PEM) <= 0))
+        err("Failed to load private key");
+    
+    if (_unlikely(!SSL_CTX_check_private_key(ssl_ctx)))
+        err("Private key does not match the public certificate");
+
+    _log << "SSL context initialized." << endline;
+#endif
 
     /* Create a socket. */
     Server::servfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -47,7 +74,7 @@ Server::Server(std::string ip, short port)
     if (_unlikely(bind(Server::servfd, (sockaddr *)Server::servaddr, sizeof(*Server::servaddr)) != 0))
         err("Failed to bind socket")
     else
-        _log << "Successfully binded socket" << endline;
+        _log << "Successfully bound socket" << endline;
 
     /* Listen on the socket. */
     if (_unlikely(listen(Server::servfd, 5) != 0))
@@ -55,7 +82,9 @@ Server::Server(std::string ip, short port)
     else
         _log << "Server listening" << endline;
     
-    _log << "Server UP." << endline << endline;
+    
+    
+    _log << "Server UP at " << ip << ":" << port << "." << endline << endline;
 
     /* Flush the output. */
     _log << std::flush;
@@ -66,14 +95,18 @@ Server::~Server()
     _log << "Terminating Server instance" << endline;
     _log << "---------------------------" << endline;
     
+#ifdef USE_HTTPS
+    SSL_CTX_free(ssl_ctx);
+    EVP_cleanup();
+#endif
+
     /* Wait for all threads to terminate. */
     _log << "Waiting for all threads to terminate... ";
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     _log << "Done." << endline;
 
     /* Deallocate the server's address. */
-    if (_likely(servaddr))
-        delete servaddr;
+    delete servaddr;
 
     std::cout << "\033[?25h";
 
@@ -117,20 +150,68 @@ void Server::accept_clients()
 
 void Server::handle_client(Client* __restrict__ cli)
 {
-    char buff[READ_BUFF_SIZE];
-    size_t size;
-    if (_unlikely((size = read(cli->connfd, buff, READ_BUFF_SIZE)) <= 0))
-        err("Failed to read data")
-    
-    auto d = Server::http.load()->generate_response(std::string(buff));
+    char buff[READ_BUFF_SIZE] = {};
+    size_t size = 0;
 
-    /* Send the data. */
+#ifdef USE_HTTPS
+    SSL* ssl = SSL_new(ssl_ctx);
+    if (_unlikely(!ssl))
+    {
+        ERR_print_errors_fp(stderr);
+        close(cli->connfd);
+        delete cli;
+        return;
+    }
+
+    if (_unlikely(SSL_set_fd(ssl, cli->connfd) == 0))
+    {
+        ERR_print_errors_fp(stderr);
+        SSL_free(ssl);
+        close(cli->connfd);
+        delete cli;
+        return;
+    }
+
+    if (_unlikely(SSL_accept(ssl) <= 0))
+    {
+        ERR_print_errors_fp(stderr);
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+        close(cli->connfd);
+        delete cli;
+        return;
+    }
+
+    size = SSL_read(ssl, buff, READ_BUFF_SIZE);
+#else
+    size = read(cli->connfd, buff, READ_BUFF_SIZE);
+#endif
+
+    if (_unlikely(size <= 0))
+    {
+        err("Failed to read data");
+        close(cli->connfd);
+#ifdef USE_HTTPS
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+#endif
+        delete cli;
+        return;
+    }
+
+    auto d = Server::http.load()->generate_response(std::string(buff, size));
+
+#ifdef USE_HTTPS
+    if (_unlikely(SSL_write(ssl, d.first.c_str(), d.second) <= 0))
+        err("Failed to send data via SSL");
+
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
+#else
     if (_unlikely(send(cli->connfd, d.first.c_str(), d.second, 0) <= 0))
-        err("Failed to send data.")
+        err("Failed to send data.");
+#endif
 
-    /* Close connection and deallocate. */
     close(cli->connfd);
     delete cli;
-
-    cli = nullptr;
 }

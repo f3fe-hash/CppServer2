@@ -1,33 +1,59 @@
-CXX := g++
+# ---------------------------
+# HTTPS
+# ---------------------------
 
-CXXVERSION := 17
+KEY  = keys/key.pem
+CERT = keys/cert.pem
 
-CXXFLAGS := -Wall -Wextra -Wpedantic -Ofast -Os -static -funroll-loops -std=c++$(CXXVERSION)
+# Enable HTTPS via: make https=1
+ifeq ($(https),1)
+    HTTPS_FLAGS += -DUSE_HTTPS
+    HTTPS_FLAGS += -DKEY=\"$(KEY)\"
+    HTTPS_FLAGS += -DCERT=\"$(CERT)\"
+endif
 
-BUILD_DIR   := build
-INCLUDE_DIR := include
+# ---------------------------
+# Compiler and Flags
+# ---------------------------
+
+CXX         := g++
+CXXVERSION  := 17
+CXXFLAGS    := -Wall -Wextra -Wpedantic -Ofast -Os -funroll-loops -std=c++$(CXXVERSION) -static-libstdc++ -static-libgcc $(HTTPS_FLAGS)
+LIBS        := -lssl -lcrypto
+
+# ---------------------------
+# Directories
+# ---------------------------
+
 SRC_DIR     := src
+INCLUDE_DIR := include
+BUILD_DIR   := build
+TARGET      := server
 
-TARGET := server
+SRCS        := $(wildcard $(SRC_DIR)/*.cpp)
+OBJS        := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.cpp.o,$(SRCS))
 
-SRCS := $(wildcard $(SRC_DIR)/*.cpp)
-OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.cpp.o,$(SRCS))
-
-.PHONY: all run test clean size
+# ---------------------------
+# Main Targets
+# ---------------------------
 
 all: $(BUILD_DIR)/$(TARGET)
 
-$(BUILD_DIR)/$(TARGET): $(OBJS) $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) $(OBJS) -o $(BUILD_DIR)/$(TARGET)
+$(BUILD_DIR)/$(TARGET): $(OBJS) | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) $(OBJS) -o $@ $(LIBS)
 
-$(BUILD_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) $(DEBUG) -c $< -o $@
+$(BUILD_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
+# ---------------------------
+# Convenience Targets
+# ---------------------------
+
 run:
-	@clear
+#@clear
 	@./$(BUILD_DIR)/$(TARGET)
 
 test:
@@ -37,24 +63,62 @@ test:
 clean:
 	@rm -rf $(BUILD_DIR) logs test/test
 
+deep-clean:
+	@rm -rf $(BUILD_DIR) logs test/test $(KEY) $(CERT)
+
 size:
 	@wc -c $(BUILD_DIR)/$(TARGET)
+
+show:
+	@printf "\033[?25h"
+
+# ---------------------------
+# Generate HTTPS Certificate
+# ---------------------------
+
+gen-keys:
+	@if [ -f $(KEY) ] && [ -f $(CERT) ]; then \
+		echo "Keys already exist at $(KEY) and $(CERT). Skipping."; \
+	else \
+		echo "Generating self-signed certificate..."; \
+		mkdir -p $(dir $(KEY)); \
+		openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
+			-keyout $(KEY) -out $(CERT) -nodes \
+			-subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"; \
+		echo "Done: $(KEY) and $(CERT) generated."; \
+	fi
+
+
+force-gen-keys:
+	@echo "Generating self-signed certificate..."
+	@mkdir -p $(dir $(KEY))
+	@openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
+		-keyout $(KEY) -out $(CERT) -nodes \
+		-subj "/C=US/ST=State/L=City/O=Organization/OU=Unit/CN=localhost"
+	@echo "Done: $(KEY) and $(CERT) generated."
+
+# ---------------------------
+# Service Installation
+# ---------------------------
 
 SERVICE_NAME := cppserver
 SERVICE_FILE := $(SERVICE_NAME).service
 SERVICE_DEST := /etc/systemd/system/$(SERVICE_FILE)
 SERVICE_DIR  := /etc/CppServer
+SOURCE_LINK  := https://github.com/f3fe-hash/CppServer2.git
 
-SOURCE_LINK := https://github.com/f3fe-hash/CppServer2.git
-
-#
-# Install the server
-#
 install: $(BUILD_DIR)/$(TARGET)
-	@sudo mkdir -p /etc/CppServer
-	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
-	@sudo mkdir -p /etc/CppServer/site
-	@sudo cp -r site/* /etc/CppServer/site/
+	@sudo mkdir -p $(SERVICE_DIR)
+	@sudo cp $< $(SERVICE_DIR)/server
+	@sudo mkdir -p $(SERVICE_DIR)/site
+	@sudo cp -r site/* $(SERVICE_DIR)/site/
+
+	@if [ "$(https)" = "1" ]; then \
+		echo "🔐 Copying HTTPS certificate and key..."; \
+		sudo mkdir -p $(SERVICE_DIR)/keys; \
+		sudo cp $(KEY) $(SERVICE_DIR)/keys/key.pem; \
+		sudo cp $(CERT) $(SERVICE_DIR)/keys/cert.pem; \
+	fi
 
 	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
@@ -62,53 +126,42 @@ install: $(BUILD_DIR)/$(TARGET)
 	@sudo systemctl start  $(SERVICE_NAME)
 	@sudo systemctl status $(SERVICE_NAME)
 
-# Create an alias to check the server's status
 	@echo "alias status='sudo systemctl status $(SERVICE_NAME)'" > ~/.bash_aliases
-
-# Then reboot
 	@sudo reboot
 
-#
-# Uninstall the server
-#
 uninstall:
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
 	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
-#
-# Do a full re-install
-#
-reinstall-full:
-# First uninstall service
+update:
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
 	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
-# Remove existing source, clone fresh, rebuild and install
 	@cd .. && \
 	rm -rf CppServer2 && \
-	git clone $(SOURCE_LINK) && \
-	cd CppServer2 && \
-	make install
+	git clone $(SOURCE_LINK)
 
-#
-# Do a basic re-compile and service restart
-#
-reinstall-basic: $(BUILD_DIR)/$(TARGET)
-# First uninstall service
+reinstall: $(BUILD_DIR)/$(TARGET)
 	@sudo systemctl stop    $(SERVICE_NAME)
 	@sudo systemctl disable $(SERVICE_NAME)
 	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
 
-# Then reinstall service
-	@sudo mkdir -p /etc/CppServer
-	@sudo cp $(BUILD_DIR)/$(TARGET) /etc/CppServer/server
-	@sudo mkdir -p /etc/CppServer/site
-	@sudo cp -r site/* /etc/CppServer/site/
+	@sudo mkdir -p $(SERVICE_DIR)
+	@sudo cp $< $(SERVICE_DIR)/server
+	@sudo mkdir -p $(SERVICE_DIR)/site
+	@sudo cp -r site/* $(SERVICE_DIR)/site/
+
+	ifeq ($(https),1)
+		@echo "🔐 Copying HTTPS certificate and key..."
+		@sudo mkdir -p $(SERVICE_DIR)/keys
+		@sudo cp $(KEY) $(SERVICE_DIR)/keys/key.pem
+		@sudo cp $(CERT) $(SERVICE_DIR)/keys/cert.pem
+	endif
 
 	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
@@ -116,15 +169,16 @@ reinstall-basic: $(BUILD_DIR)/$(TARGET)
 	@sudo systemctl start  $(SERVICE_NAME)
 	@sudo systemctl status $(SERVICE_NAME)
 
-# Finally reboot
 	@sudo reboot
 
 restart:
 	@sudo systemctl restart $(SERVICE_NAME)
 	@sudo systemctl status  $(SERVICE_NAME)
 
-# Check the status of the server
 status:
 	@sudo systemctl status $(SERVICE_NAME)
 	@echo "-------------------------------------"
 	@cat /etc/CppServer/logs/log.txt
+
+.PHONY: all run test clean deep-clean gen-keys force-gen-keys \
+        size install uninstall reinstall-full reinstall-basic restart status

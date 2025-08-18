@@ -4,6 +4,12 @@ size_t HTTPResponseGenerator::HTTP_HEADER_SIZE;
 std::shared_ptr<FileCache> HTTPResponseGenerator::cache;
 HTTPRequestParser* HTTPResponseGenerator::parser;
 
+std::unordered_map<int, std::string> HTTPResponseGenerator::HTTPCodes =
+{
+    {200, "OK"},
+    {403, "Forbidden"}
+};
+
 HTTPResponseGenerator::HTTPResponseGenerator(std::shared_ptr<FileCache> cache)
 {
     this->HTTP_HEADER_SIZE = std::strlen(this->HTTP_HEADER_TEMPLATE);

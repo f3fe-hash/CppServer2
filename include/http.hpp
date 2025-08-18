@@ -43,8 +43,8 @@ public:
 class HTTPResponseGenerator
 {
     static constexpr const char* HTTP_HEADER_TEMPLATE =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/html; charset=UTF-8\r\n"
+    "HTTP/1.1 %d %s\r\n"
+    "Content-Type: %s; charset=UTF-8\r\n"
     "Content-Length: %lu\r\n"
     "Connection: close\r\n"
     "\r\n%s";
@@ -55,19 +55,21 @@ class HTTPResponseGenerator
 
     static HTTPRequestParser* parser;
 
+    static std::unordered_map<int, std::string> HTTPCodes;
+
 public:
     HTTPResponseGenerator(std::shared_ptr<FileCache> cache);
     ~HTTPResponseGenerator();
 
     _throw _wur
     static inline
-    HTTPResponse _generate_response(std::string data)
+    HTTPResponse _generate_response(std::string data, std::string contentType, int errCode)
     {
         /* Generate the string. */
         size_t total_size = data.size() + HTTPResponseGenerator::HTTP_HEADER_SIZE;
         char* res = new char[total_size];
         std::snprintf(res, total_size, HTTPResponseGenerator::HTTP_HEADER_TEMPLATE,
-            data.size(), data.c_str());
+            errCode, HTTPResponseGenerator::HTTPCodes[errCode].c_str(), contentType.c_str(), data.size(), data.c_str());
         
         return {std::string(res), total_size};
     }
@@ -83,7 +85,7 @@ public:
 
         // Protect against ..
         if (req.path.find("..") != std::string::npos)
-            return HTTPResponseGenerator::_generate_response("403 Forbidden");
+            return HTTPResponseGenerator::_generate_response("<h1>403 Forbidden</h1>", "text/html", 403);
         
         // Ensure proper path
         std::string path;
@@ -93,7 +95,7 @@ public:
             path = req.path[0] == '/' ? req.path.substr(1) : req.path;
         std::string dat = cache->readFile("site/" + path);
 
-        return HTTPResponseGenerator::_generate_response(dat);
+        return HTTPResponseGenerator::_generate_response(dat, "text/html", 200);
     }
 };
 
