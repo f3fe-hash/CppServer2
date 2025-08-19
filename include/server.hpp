@@ -23,13 +23,10 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#pragma message("HTTPS is enabled")
-#else
-#pragma message("HTTPS is disabled")
 #endif
 
-#include "utils.hpp"
-#include "log.hpp"
+#include "utils/utils.hpp"
+#include "utils/log.hpp"
 #include "file.hpp"
 #include "http.hpp"
 

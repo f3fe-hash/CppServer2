@@ -13,8 +13,8 @@
 #include <filesystem>
 #include <condition_variable>
 
-#include "utils.hpp"
-#include "log.hpp"
+#include "utils/utils.hpp"
+#include "utils/log.hpp"
 
 namespace fs = std::filesystem;
 

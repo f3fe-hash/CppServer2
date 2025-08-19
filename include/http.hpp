@@ -9,7 +9,7 @@
 
 #include <atomic>
 
-#include "utils.hpp"
+#include "utils/utils.hpp"
 #include "file.hpp"
 
 using HTTPResponse = std::pair<std::string, size_t>;
@@ -38,11 +38,15 @@ class HTTPRequestParser
         "([^:\\r\\n]+):\\s*(.*)",
         std::regex::ECMAScript | std::regex_constants::optimize);
     
+    static std::unordered_map<std::string, std::string> mimeTypes;
+    
 public:
     HTTPRequestParser() = default;
     ~HTTPRequestParser() = default;
 
     HTTPRequest parseRequest(std::string_view req);
+
+    std::string getMimeType(const std::string& path);
 };
 
 class HTTPResponseGenerator
@@ -65,14 +69,14 @@ public:
         const std::string_view msg = (it != HTTPCodes.end()) ? it->second : "Unknown";
 
         /* Generate the string. */
-        std::ostringstream oss;
-        oss << "HTTP/1.1 " << errCode << " " << msg << "\r\n"
-            << "Content-Type: " << contentType << "; charset=UTF-8\r\n"
-            << "Content-Length: " << data.size() << "\r\n"
-            << "Connection: close\r\n\r\n"
-            << data;
+        std::string res;
+        res.reserve(data.size() + 128); // Optional, for performance
+        res += "HTTP/1.1 " + std::to_string(errCode) + " " + std::string(msg) + "\r\n";
+        res += "Content-Type: " + std::string(contentType) + "; charset=UTF-8\r\n";
+        res += "Content-Length: " + std::to_string(data.size()) + "\r\n";
+        res += "Connection: close\r\n\r\n";
+        res += std::string(data);
 
-        std::string res = oss.str();
         return {std::move(res), res.size()};
     }
 
@@ -96,7 +100,8 @@ public:
         else
             path = req.path[0] == '/' ? req.path.substr(1) : req.path;
 
-        return HTTPResponseGenerator::_generate_response(cache->readFile("site/" + path), "text/html", 200);
+        return HTTPResponseGenerator::_generate_response(cache->readFile("site/" + path),
+            HTTPResponseGenerator::parser.getMimeType(path), 200);
     }
 };
 

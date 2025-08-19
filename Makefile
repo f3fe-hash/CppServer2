@@ -12,11 +12,13 @@ PORT := 8080
 KEY  = keys/key.pem
 CERT = keys/cert.pem
 
-# Enable HTTPS via: make https=1
 ifeq ($(https),1)
     HTTPS_FLAGS += -DUSE_HTTPS
     HTTPS_FLAGS += -DKEY=\"$(KEY)\"
     HTTPS_FLAGS += -DCERT=\"$(CERT)\"
+    HTTPS_ENABLED := 1
+else
+    HTTPS_ENABLED := 0
 endif
 
 # ---------------------------
@@ -37,8 +39,19 @@ INCLUDE_DIR := include
 BUILD_DIR   := build
 TARGET      := server
 
-SRCS        := $(wildcard $(SRC_DIR)/*.cpp)
-OBJS        := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.cpp.o,$(SRCS))
+SRCS := $(shell find $(SRC_DIR) -name '*.cpp')
+OBJS := $(SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.cpp.o)
+DIRS := $(sort $(dir $(OBJS)))
+
+# ---------------------------
+# Colors
+# ---------------------------
+
+RED    := \033[31m
+YELLOW := \033[33m
+GREEN  := \033[32m
+BLUE   := \033[34m
+RESET  := \033[0m
 
 # ---------------------------
 # Main Targets
@@ -46,14 +59,24 @@ OBJS        := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.cpp.o,$(SRCS))
 
 all: $(BUILD_DIR)/$(TARGET)
 
-$(BUILD_DIR)/$(TARGET): $(OBJS) | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) $(OBJS) -o $@ $(LIBS)
+$(BUILD_DIR)/$(TARGET): $(OBJS) | $(DIRS)
+	@printf "$(BLUE)  LD\tLinking files...$(RESET)"
+	@$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) $(OBJS) -o $@ $(LIBS)
+	@printf "$(BLUE)Done$(RESET)\n"
+ifeq ($(HTTPS_ENABLED),0)
+	@printf "$(RED)  WARN\tHTTPS is disabled.$(RESET)\n"
+else
+	@printf "$(YELLOW)  NOTE\tHTTPS is enabled.$(RESET)\n"
+endif
 
-$(BUILD_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+$(BUILD_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp | $(DIRS)
+	@mkdir -p $(dir $@)
+	@printf "$(GREEN)  CXX\tBuilding file $@...$(RESET)"
+	@$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+	@printf "$(GREEN)Done\n$(RESET)"
 
-$(BUILD_DIR):
-	@mkdir -p $(BUILD_DIR)
+$(DIRS):
+	@mkdir -p $(DIRS)
 
 # ---------------------------
 # Convenience Targets
@@ -79,6 +102,11 @@ size:
 show:
 	@printf "\033[?25h"
 
+todo:
+	@echo "1) Enter Makefile to configure IP and PORT"
+	@echo "3) Run make force-key-gen"
+	@echo "4) Run make install https=1 -j 4"
+
 # ---------------------------
 # Generate HTTPS Certificates
 # ---------------------------
@@ -95,17 +123,16 @@ key-gen:
 		mkdir -p $(dir $(KEY)); \
 		openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
 			-keyout $(KEY) -out $(CERT) -nodes \
-			-subj "/C=$(COUNTRY)/ST=$(STATE)/L=$(CITY)/O=Organization/OU=Unit/CN=$(IP)";
+			-subj "/C=$(COUNTRY)/ST=$(STATE)/L=$(CITY)/O=Organization/OU=Unit/CN=$(IP)"; \
 		echo "Done: $(KEY) and $(CERT) generated."; \
 	fi
-
 
 force-key-gen:
 	@echo "Generating self-signed certificate..."
 	@mkdir -p $(dir $(KEY))
 	@openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
 		-keyout $(KEY) -out $(CERT) -nodes \
-		-subj "/C=$(COUNTRY)/ST=$(STATE)/L=$(CITY)/O=Organization/OU=Unit/CN=$(IP)";
+		-subj "/C=$(COUNTRY)/ST=$(STATE)/L=$(CITY)/O=Organization/OU=Unit/CN=$(IP)"
 	@echo "Done: $(KEY) and $(CERT) generated."
 
 # ---------------------------
@@ -124,12 +151,15 @@ install: $(BUILD_DIR)/$(TARGET)
 	@sudo mkdir -p $(SERVICE_DIR)/site
 	@sudo cp -r site/* $(SERVICE_DIR)/site/
 
-	@if [ "$(https)" = "1" ]; then \
-		echo "🔐 Copying HTTPS certificate and key..."; \
-		sudo mkdir -p $(SERVICE_DIR)/keys; \
-		sudo cp $(KEY) $(SERVICE_DIR)/keys/key.pem; \
-		sudo cp $(CERT) $(SERVICE_DIR)/keys/cert.pem; \
-	fi
+ifeq ($(HTTPS_ENABLED),1)
+	@echo "Copying HTTPS certificate and key..."
+	@sudo mkdir -p $(SERVICE_DIR)/keys
+	@sudo cp $(KEY) $(SERVICE_DIR)/keys/key.pem
+	@sudo cp $(CERT) $(SERVICE_DIR)/keys/cert.pem
+endif
+
+	@echo "SERVER_IP=$(IP)" | sudo tee -a /etc/environment >/dev/null
+	@echo "SERVER_PORT=$(PORT)" | sudo tee -a /etc/environment >/dev/null
 
 	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
@@ -137,7 +167,7 @@ install: $(BUILD_DIR)/$(TARGET)
 	@sudo systemctl start  $(SERVICE_NAME)
 	@sudo systemctl status $(SERVICE_NAME)
 
-	@echo "alias status='sudo systemctl status $(SERVICE_NAME)'" > ~/.bash_aliases
+	@echo "alias status='sudo systemctl status $(SERVICE_NAME)'" >> ~/.bash_aliases
 	@sudo reboot
 
 uninstall:
@@ -152,31 +182,7 @@ update:
 	$(SERVICE_NAME) $(SERVICE_DEST) \
 	$(SERVICE_DIR) $(SOURCE_LINK)
 
-reinstall: $(BUILD_DIR)/$(TARGET)
-	@sudo systemctl stop    $(SERVICE_NAME)
-	@sudo systemctl disable $(SERVICE_NAME)
-	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
-	@sudo systemctl daemon-reload
-
-	@sudo mkdir -p $(SERVICE_DIR)
-	@sudo cp $< $(SERVICE_DIR)/server
-	@sudo mkdir -p $(SERVICE_DIR)/site
-	@sudo cp -r site/* $(SERVICE_DIR)/site/
-
-	ifeq ($(https),1)
-		@echo "🔐 Copying HTTPS certificate and key..."
-		@sudo mkdir -p $(SERVICE_DIR)/keys
-		@sudo cp $(KEY) $(SERVICE_DIR)/keys/key.pem
-		@sudo cp $(CERT) $(SERVICE_DIR)/keys/cert.pem
-	endif
-
-	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
-	@sudo systemctl daemon-reload
-	@sudo systemctl enable $(SERVICE_NAME)
-	@sudo systemctl start  $(SERVICE_NAME)
-	@sudo systemctl status $(SERVICE_NAME)
-
-	@sudo reboot
+reinstall: uninstall install
 
 restart:
 	@sudo systemctl restart $(SERVICE_NAME)
@@ -185,7 +191,7 @@ restart:
 status:
 	@sudo systemctl status $(SERVICE_NAME)
 	@echo "-------------------------------------"
-	@cat /etc/CppServer/logs/log.txt | tail -n 20
+	@tail -n 20 /etc/CppServer/logs/log.log || true
 
-.PHONY: all run test clean deep-clean gen-keys force-gen-keys \
-        size install uninstall reinstall-full reinstall-basic restart status
+.PHONY: all run test clean deep-clean key-gen force-key-gen \
+        size install uninstall reinstall restart status todo show

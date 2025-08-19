@@ -40,4 +40,3 @@ rm -rf CppServer2
 echo "Cloning repository from $SOURCE_LINK"
 git clone "$SOURCE_LINK"
 cd CppServer2
-make install
