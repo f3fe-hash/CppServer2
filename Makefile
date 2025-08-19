@@ -2,8 +2,10 @@
 # General config
 # ---------------------------
 
-IP   := 192.168.1.39
+IP   := $(shell ip route get 1.1.1.1 | grep -oP 'src \K[0-9.]+')
 PORT := 8080
+
+SOURCE_LINK  := https://github.com/f3fe-hash/CppServer2.git
 
 # ---------------------------
 # HTTPS
@@ -103,9 +105,11 @@ show:
 	@printf "\033[?25h"
 
 todo:
-	@echo "1) Enter Makefile to configure IP and PORT"
-	@echo "3) Run make force-key-gen"
-	@echo "4) Run make install https=1 -j 4"
+	@echo "1) git clone $(SOURCE_LINK)"
+	@echo "2) cd CppServer2"
+	@echo "3) make key-gen"
+	@echo "4) make reinstall https=1"
+	@echo "5) sudo reboot"
 
 # ---------------------------
 # Generate HTTPS Certificates
@@ -136,51 +140,61 @@ force-key-gen:
 	@echo "Done: $(KEY) and $(CERT) generated."
 
 # ---------------------------
-# Service Installation
+# Paths & Service Setup
 # ---------------------------
 
 SERVICE_NAME := cppserver
 SERVICE_FILE := install/$(SERVICE_NAME).service
 SERVICE_DEST := /etc/systemd/system/$(SERVICE_NAME).service
 SERVICE_DIR  := /etc/CppServer
-SOURCE_LINK  := https://github.com/f3fe-hash/CppServer2.git
+
+# ---------------------------
+# Install
+# ---------------------------
 
 install: $(BUILD_DIR)/$(TARGET)
-	@sudo mkdir -p $(SERVICE_DIR)
-	@sudo cp $< $(SERVICE_DIR)/server
-	@sudo mkdir -p $(SERVICE_DIR)/site
+	@echo "Installing $(SERVICE_NAME)..."
+	@sudo install -d $(SERVICE_DIR)/site
+	@sudo install -D $< $(SERVICE_DIR)/server
 	@sudo cp -r site/* $(SERVICE_DIR)/site/
 
 ifeq ($(HTTPS_ENABLED),1)
-	@echo "Copying HTTPS certificate and key..."
-	@sudo mkdir -p $(SERVICE_DIR)/keys
-	@sudo cp $(KEY) $(SERVICE_DIR)/keys/key.pem
-	@sudo cp $(CERT) $(SERVICE_DIR)/keys/cert.pem
+	@echo "Copying HTTPS certificates..."
+	@sudo install -d $(SERVICE_DIR)/keys
+	@sudo install -m 600 $(KEY) $(SERVICE_DIR)/keys/key.pem
+	@sudo install -m 644 $(CERT) $(SERVICE_DIR)/keys/cert.pem
 endif
 
-	@echo "SERVER_IP=$(IP)" | sudo tee -a /etc/environment >/dev/null
-	@echo "SERVER_PORT=$(PORT)" | sudo tee -a /etc/environment >/dev/null
+		@echo "Setting environment variables..."
+	@sh -c 'cat > /tmp/envfile <<EOF\n\
+SERVER_IP=$(IP)\n\
+SERVER_PORT=$(PORT)\n\
+EOF'
+	@sudo mv /tmp/envfile /etc/CppServer/env
 
-	@sudo cp $(SERVICE_FILE) $(SERVICE_DEST)
+	@echo "Setting up systemd service..."
+	@sudo install -D $(SERVICE_FILE) $(SERVICE_DEST)
 	@sudo systemctl daemon-reload
-	@sudo systemctl enable $(SERVICE_NAME)
-	@sudo systemctl start  $(SERVICE_NAME)
-	@sudo systemctl status $(SERVICE_NAME)
+	@sudo systemctl enable --now $(SERVICE_NAME)
 
-	@echo "alias status='sudo systemctl status $(SERVICE_NAME)'" >> ~/.bash_aliases
-	@sudo reboot
+	@echo "Installation complete."
+
+# ---------------------------
+# Uninstall
+# ---------------------------
 
 uninstall:
-	@sudo systemctl stop    $(SERVICE_NAME)
-	@sudo systemctl disable $(SERVICE_NAME)
-	@sudo rm -rf $(SERVICE_DEST) $(SERVICE_DIR)
+	@echo "Uninstalling $(SERVICE_NAME)..."
+	@sudo systemctl stop $(SERVICE_NAME) || true
+	@sudo systemctl disable $(SERVICE_NAME) || true
+	@sudo rm -f $(SERVICE_DEST)
+	@sudo rm -rf $(SERVICE_DIR)
 	@sudo systemctl daemon-reload
+	@echo "Uninstallation complete."
 
-update:
-	@chmod +x install/update.sh
-	@./install/update.sh \
-	$(SERVICE_NAME) $(SERVICE_DEST) \
-	$(SERVICE_DIR) $(SOURCE_LINK)
+# ---------------------------
+# Reinstall
+# ---------------------------
 
 reinstall: uninstall install
 
