@@ -45,7 +45,7 @@ HTTPRequest HTTPRequestParser::parseRequest(std::string_view req)
         preq.path         = matches[2].str();
         preq.http_version = matches[3].str();
 
-        const std::string& headers_str = matches[4]; // ✅ Must be std::string
+        const std::string& headers_str = matches[4];
 
         for (std::sregex_iterator it(headers_str.begin(), headers_str.end(), headerRegex), end;
              it != end; ++it)

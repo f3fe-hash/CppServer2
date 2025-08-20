@@ -1,5 +1,4 @@
-#ifndef __UTILS_HPP__
-#define __UTILS_HPP__
+#pragma once
 
 #include <chrono>
 #include <ctime>
@@ -23,5 +22,3 @@ std::string _now();
     std::cerr << x << " (" << _now() << ")" << "\033[?25h" << std::endl; \
     throw std::runtime_error(std::string(x) + "(" + std::strerror(errno) + ")"); \
 }
-
-#endif

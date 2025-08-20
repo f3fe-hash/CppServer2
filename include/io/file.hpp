@@ -1,5 +1,4 @@
-#ifndef __FILE_HPP__
-#define __FILE_HPP__
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -48,5 +47,3 @@ public:
 
     std::string readFile(const std::string& path);
 };
-
-#endif

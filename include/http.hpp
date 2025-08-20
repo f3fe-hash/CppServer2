@@ -1,5 +1,4 @@
-#ifndef __HTTP_HPP__
-#define __HTTP_HPP__
+#pragma once
 
 #include <string>
 #include <cstring>
@@ -10,7 +9,7 @@
 #include <atomic>
 
 #include "utils/utils.hpp"
-#include "file.hpp"
+#include "io/file.hpp"
 
 using HTTPResponse = std::pair<std::string, size_t>;
 
@@ -70,7 +69,7 @@ public:
 
         /* Generate the string. */
         std::string res;
-        res.reserve(data.size() + 128); // Optional, for performance
+        res.reserve(data.size() + 128);
         res += "HTTP/1.1 " + std::to_string(errCode) + " " + std::string(msg) + "\r\n";
         res += "Content-Type: " + std::string(contentType) + "; charset=UTF-8\r\n";
         res += "Content-Length: " + std::to_string(data.size()) + "\r\n";
@@ -85,24 +84,25 @@ public:
     //
     _wur
     static inline
-    HTTPResponse generate_response(std::string_view data)
+    HTTPResponse generate_response(std::string_view request)
     {
-        HTTPRequest req = HTTPResponseGenerator::parser.parseRequest(data);
+        HTTPRequest req = HTTPResponseGenerator::parser.parseRequest(request);
 
         // Protect against ..
         if (req.path.find("..") != std::string::npos)
-            return HTTPResponseGenerator::_generate_response("<h1>403 Forbidden</h1>", "text/html", 403);
+        {
+            std::string err = cache->readFile("site/err/403.html");
+            return HTTPResponseGenerator::_generate_response(err.empty() ? "<h1>403 Forbidden</h1>" : err, "text/html", 403);
+        }
         
         // Ensure proper path
-        std::string path;
         if (req.path == "/" || req.path.empty())
-            path = "index.html";
+            req.path = "index.html";
         else
-            path = req.path[0] == '/' ? req.path.substr(1) : req.path;
+            req.path = req.path[0] == '/' ? req.path.substr(1) : req.path;
 
-        return HTTPResponseGenerator::_generate_response(cache->readFile("site/" + path),
-            HTTPResponseGenerator::parser.getMimeType(path), 200);
+        std::string data = cache->readFile("site/" + req.path);
+        return HTTPResponseGenerator::_generate_response(data,
+            HTTPResponseGenerator::parser.getMimeType(req.path), data.empty() ? 404 : 200);
     }
 };
-
-#endif

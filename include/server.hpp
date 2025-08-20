@@ -1,5 +1,4 @@
-#ifndef __SERVER_HPP__
-#define __SERVER_HPP__
+#pragma once
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -27,19 +26,24 @@
 
 #include "utils/utils.hpp"
 #include "utils/log.hpp"
-#include "file.hpp"
+#include "io/file.hpp"
+#include "io/threads.hpp"
 #include "http.hpp"
 
-#define CACHE_SIZE 4096
 #define READ_BUFF_SIZE 8192
 
-#define BACKLOG 128
+#define CACHE_SIZE  4096
+#define NUM_THREADS 24
+#define BACKLOG     128
 
 /* Contains 1 client. */
 using Client = struct
 {
     int connfd;
     sockaddr_in connaddr;
+#ifdef USE_HTTPS
+    SSL* ssl;
+#endif
 
     enum connType
     {
@@ -50,22 +54,23 @@ using Client = struct
 
 class Server
 {
-    static int servfd;
-    static sockaddr_in servaddr;
+    inline static int servfd;
+    inline static sockaddr_in servaddr;
 
-    static bool running;
-    static std::atomic<HTTPResponseGenerator *> http;
+    inline static bool running;
+    inline static std::atomic<HTTPResponseGenerator *> http;
 
-    static std::shared_ptr<FileCache> cache;
+    inline static std::shared_ptr<FileCache> cache;
+
+    static ThreadPool pool;
 
 #ifdef USE_HTTPS
-    static SSL_CTX* ssl_ctx;
+    inline static SSL_CTX* ssl_ctx = nullptr;
 #endif
 
     /* Handle a client */
-    _nnull(1)
     static inline
-    void handle_client(Client* __restrict__ cli);
+    void handle_client(Client cli);
 
 public:
     Server(std::string_view ip, const short port);
@@ -75,5 +80,3 @@ public:
     static
     void accept_clients();
 };
-
-#endif

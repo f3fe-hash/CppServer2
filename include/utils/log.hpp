@@ -1,5 +1,4 @@
-#ifndef __LOG_HPP__
-#define __LOG_HPP__
+#pragma once
 
 #include <fstream>
 #include <iostream>
@@ -38,5 +37,3 @@ public:
 };
 
 extern Log _log;
-
-#endif

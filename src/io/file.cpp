@@ -1,4 +1,4 @@
-#include "file.hpp"
+#include "io/file.hpp"
 
 FileCache::FileCache(int refresh_interval_seconds)
     : refresh_interval(refresh_interval_seconds), stop_flag(false)
@@ -26,7 +26,7 @@ std::shared_ptr<FileCacheEntry> FileCache::createEntry(const std::string& path)
     {
         std::shared_lock lock(map_mutex);
         auto it = cache_map.find(path);
-        if (it != cache_map.end())
+        if (_likely(it != cache_map.end()))
             return it->second;
     }
 

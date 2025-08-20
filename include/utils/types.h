@@ -1,5 +1,4 @@
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#pragma once
 
 /* Attributes. */
 #define _throw      __attribute__((nothrow))
@@ -24,5 +23,3 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#endif

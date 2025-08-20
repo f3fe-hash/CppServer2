@@ -64,6 +64,10 @@
         "variant": "cpp",
         "format": "cpp",
         "__nullptr": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "map": "cpp",
+        "unordered_set": "cpp",
+        "regex": "cpp",
+        "future": "cpp"
     }
 }

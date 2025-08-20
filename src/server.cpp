@@ -2,20 +2,12 @@
 
 Log _log("log.log");
 
-/* Define static variables. */
-int         Server::servfd   = 0;
-bool        Server::running  = true;
-sockaddr_in Server::servaddr;
-
-std::atomic<HTTPResponseGenerator *> Server::http;
-std::shared_ptr<FileCache> Server::cache;
-
-#ifdef USE_HTTPS
-SSL_CTX* Server::ssl_ctx = nullptr;
-#endif
+ThreadPool Server::pool{3};
 
 Server::Server(std::string_view ip, const short port)
 {
+    Server::running = true;
+
     /* Hide cursor. Only in std::cout. */
     std::cout << "\033[?25l" << std::flush;
 
@@ -80,9 +72,11 @@ Server::Server(std::string_view ip, const short port)
     else
         _log << "Server listening" << endline;
     
-    
-    
-    _log << "Server UP at " << ip << ":" << port << "." << endline << endline;
+#ifdef USE_HTTPS
+    _log << "Server UP at https://" << ip << ":" << port << "." << endline << endline;
+#else
+    _log << "Server UP at http://" << ip << ":" << port << "." << endline << endline;
+#endif
 
     /* Flush the output. */
     _log << std::flush;
@@ -118,96 +112,117 @@ void Server::accept_clients()
         /* Main loop lambda function */
         []()
         {
-            for (int clinum = 0; Server::running; clinum++)
+            int clinum = 0;
+            while (Server::running)
             {
-                auto* cli = new Client;
+                Client cli;
 
                 /* Accept a new client connection. */
-                cli->connfd = accept(Server::servfd, (sockaddr *)&cli->connaddr, (socklen_t *)&len);
-                if (_unlikely(cli->connfd < 0))
+                cli.connfd = accept(Server::servfd, (sockaddr *)&cli.connaddr, (socklen_t *)&len);
+                if (_unlikely(cli.connfd < 0))
                     err("Failed to accept client.")
                 else
                 {
-                    if (_unlikely(clinum % 1000 == 0))
+                    if (_unlikely(++clinum % 1000 == 0))
                         _log << "Accepted client [#" << clinum / 1000 << "k]\r" << std::flush;
                 }
+
+#ifdef USE_HTTPS
+                cli.ssl = SSL_new(ssl_ctx);
+                if (_unlikely(!cli.ssl))
+                {
+                    ERR_print_errors_fp(stderr);
+                    close(cli.connfd);
+                    return;
+                }
+
+                if (_unlikely(SSL_set_fd(cli.ssl, cli.connfd) == 0))
+                {
+                    ERR_print_errors_fp(stderr);
+                    SSL_free(cli.ssl);
+                    close(cli.connfd);
+                    return;
+                }
+#endif
                 
                 /* Spawn a new thread to handle the client. */
-                std::thread
-                (
-                    Server::handle_client,
-                    cli
-                ).detach();
+                Server::pool.enqueue(Server::handle_client, cli);
             }
         }
     ).detach();
 }
 
-void Server::handle_client(Client* __restrict__ cli)
+void Server::handle_client(Client cli)
 {
-    char buff[READ_BUFF_SIZE];
-    size_t size = 0;
+    thread_local char buff[READ_BUFF_SIZE];  // Avoid stack reallocation
+    ssize_t size = 0;
 
 #ifdef USE_HTTPS
-    SSL* ssl = SSL_new(ssl_ctx);
-    if (_unlikely(!ssl))
+    thread_local char peek[1];
+    int n = recv(cli.connfd, peek, sizeof(peek), MSG_PEEK);
+
+    if (n <= 0)
     {
-        ERR_print_errors_fp(stderr);
-        close(cli->connfd);
-        delete cli;
+        close(cli.connfd);
         return;
     }
 
-    if (_unlikely(SSL_set_fd(ssl, cli->connfd) == 0))
-    {
-        ERR_print_errors_fp(stderr);
-        SSL_free(ssl);
-        close(cli->connfd);
-        delete cli;
-        return;
-    }
+    const bool https = (unsigned char)peek[0] == 0x16;
 
-    if (_unlikely(SSL_accept(ssl) <= 0))
+    if (https)
     {
-        ERR_print_errors_fp(stderr);
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
-        close(cli->connfd);
-        delete cli;
-        return;
-    }
+        if (_unlikely(SSL_accept(cli.ssl) <= 0))
+        {
+            ERR_print_errors_fp(stderr);
+            SSL_shutdown(cli.ssl);
+            SSL_free(cli.ssl);
+            close(cli.connfd);
+            return;
+        }
 
-    size = SSL_read(ssl, buff, READ_BUFF_SIZE);
+        size = SSL_read(cli.ssl, buff, READ_BUFF_SIZE);
+    }
+    else
+        size = read(cli.connfd, buff, READ_BUFF_SIZE);
+
 #else
-    size = read(cli->connfd, buff, READ_BUFF_SIZE);
+    size = read(cli.connfd, buff, READ_BUFF_SIZE);
 #endif
 
     if (_unlikely(size <= 0))
     {
-        err("Failed to read data");
-        close(cli->connfd);
+        close(cli.connfd);
 #ifdef USE_HTTPS
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
+        SSL_shutdown(cli.ssl);
+        SSL_free(cli.ssl);
 #endif
-        delete cli;
         return;
     }
 
-    std::string_view request(buff, size);
-    auto d = Server::http.load()->generate_response(request);
+    // Use raw buffer instead of constructing string_view
+    auto d = Server::http.load()->generate_response({buff, static_cast<size_t>(size)});
 
 #ifdef USE_HTTPS
-    if (_unlikely(SSL_write(ssl, d.first.c_str(), d.second) <= 0))
-        err("Failed to send data via SSL");
+    if (https)
+    {
+        if (_unlikely(SSL_write(cli.ssl, d.first.c_str(), d.second) <= 0))
+            err("Failed to send data via SSL");
 
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
+        int shutdown_ret = SSL_shutdown(cli.ssl);
+        if (shutdown_ret == 0)
+            shutdown_ret = SSL_shutdown(cli.ssl);
+
+        SSL_free(cli.ssl);
+    }
+    else
+    {
+        if (_unlikely(send(cli.connfd, d.first.c_str(), d.second, 0) <= 0))
+            err("Failed to send data.");
+    }
 #else
-    if (_unlikely(send(cli->connfd, d.first.c_str(), d.second, 0) <= 0))
+    if (_unlikely(send(cli.connfd, d.first.c_str(), d.second, 0) <= 0))
         err("Failed to send data.");
 #endif
 
-    close(cli->connfd);
-    delete cli;
+    close(cli.connfd);
 }
