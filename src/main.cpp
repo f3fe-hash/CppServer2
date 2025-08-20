@@ -5,9 +5,12 @@ int main(int argc, char** argv)
 {
     if (argc < 3)
     {
-        std::cerr << "Usage: " << argv[0] << " <ip> <port>\n";
+        _log << "Usage: " << argv[0] << " <ip> <port>" << std::endl;
+        _log << "Args: " << argv[0] << " " << argv[1] << " " << argv[2] << std::endl;
         return 1;
     }
+    else
+        _log << "Running: " << argv[0] << " " << argv[1] << " " << argv[2] << std::endl;
 
     Server server(argv[1], static_cast<short>(std::atoi(argv[2])));
     server.accept_clients();

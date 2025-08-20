@@ -165,12 +165,8 @@ ifeq ($(HTTPS_ENABLED),1)
 	@sudo install -m 644 $(CERT) $(SERVICE_DIR)/keys/cert.pem
 endif
 
-		@echo "Setting environment variables..."
-	@sh -c 'cat > /tmp/envfile <<EOF\n\
-SERVER_IP=$(IP)\n\
-SERVER_PORT=$(PORT)\n\
-EOF'
-	@sudo mv /tmp/envfile /etc/CppServer/env
+	@echo "Generating systemd service file..."
+	@sed "s|__IP__|$(IP)|g; s|__PORT__|$(PORT)|g" install/$(SERVICE_NAME).service.tmp > install/$(SERVICE_NAME).service
 
 	@echo "Setting up systemd service..."
 	@sudo install -D $(SERVICE_FILE) $(SERVICE_DEST)

@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/etc/CppServer/server 192.168.1.53 8080
+ExecStart=/etc/CppServer/server __IP__ __PORT__
 Restart=on-failure
 User=root
 WorkingDirectory=/etc/CppServer
