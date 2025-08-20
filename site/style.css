@@ -1,12 +1,12 @@
-body
-{
+/* Global styles */
+body {
     background-color: #1a1a1a;
     margin: 0;
     font-family: Arial, sans-serif;
 }
 
-#main-page
-{
+/* Main container */
+#main-page {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -17,16 +17,15 @@ body
     margin: auto;
 }
 
-h1
-{
+/* Headings */
+h1 {
     color: #576de6;
     font-size: 40px;
     margin-bottom: 10px;
     text-align: center;
 }
 
-h2
-{
+h2 {
     color: #8b98e0;
     font-size: 30px;
     margin-top: 30px;
@@ -34,44 +33,44 @@ h2
     text-align: center;
 }
 
-#copyright
-{
-    color: white;
-    align-items: center;
-    padding-top: 60px;
-    font-size: 20px;
-}
-
-#text
-{
+/* Paragraph text */
+.text {
     color: #ffffff;
     font-size: 18px;
     line-height: 1.6;
     text-align: center;
 }
 
-#link
-{
+/* Feature list */
+.list {
+    list-style-type: disc;
+    padding-left: 20px;
+    color: #ffffff;
+    font-size: 18px;
+    line-height: 1.6;
+    max-width: 700px;
+}
+
+/* Links */
+.link {
     color: aquamarine;
     text-decoration: none;
 }
 
-#link:hover
-{
+.link:hover {
     text-decoration: underline;
 }
 
-.button-group
-{
+/* Buttons */
+.button-group {
     display: flex;
     flex-direction: row;
     gap: 15px;
     margin-top: 10px;
 }
 
-#button,
-#button-secondary
-{
+.button,
+.button-secondary {
     background-color: lightblue;
     border: none;
     padding: 12px 20px;
@@ -79,10 +78,19 @@ h2
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.3s;
+    color: #000;
+    text-align: center;
 }
 
-#button:hover,
-#button-secondary:hover
-{
+.button:hover,
+.button-secondary:hover {
     background-color: #add8e6;
+}
+
+/* Footer */
+footer p {
+    color: white;
+    font-size: 20px;
+    text-align: center;
+    padding-top: 60px;
 }

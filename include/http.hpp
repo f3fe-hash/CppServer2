@@ -102,7 +102,13 @@ public:
             req.path = req.path[0] == '/' ? req.path.substr(1) : req.path;
 
         std::string data = cache->readFile("site/" + req.path);
+        if (data.empty())
+        {
+            std::string err = cache->readFile("site/err/404.html");
+            return HTTPResponseGenerator::_generate_response(err.empty() ? "<h1>404 Not Found</h1>" : err, "text/html", 404);
+        }
+        
         return HTTPResponseGenerator::_generate_response(data,
-            HTTPResponseGenerator::parser.getMimeType(req.path), data.empty() ? 404 : 200);
+            HTTPResponseGenerator::parser.getMimeType(req.path), 200);
     }
 };

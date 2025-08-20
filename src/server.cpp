@@ -19,7 +19,7 @@ Server::Server(std::string_view ip, const short port)
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
 
-    const SSL_METHOD *method = TLS_server_method();
+    const SSL_METHOD* method = TLS_server_method();
     ssl_ctx = SSL_CTX_new(method);
     if (!ssl_ctx)
         err("Unable to create SSL context");
@@ -44,9 +44,9 @@ Server::Server(std::string_view ip, const short port)
     else
         _log << "Successfully created socket" << endline;
     
-    
+    /* Set socket options*/
     const int opt = 1;
-    if (_unlikely(setsockopt(Server::servfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0))
+    if (_unlikely(setsockopt(Server::servfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) < 0))
         err("Failed to set socked options")
     else
         _log << "Successfully set socket options" << endline;

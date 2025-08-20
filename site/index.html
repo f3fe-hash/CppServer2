@@ -1,42 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        <meta charset="UTF-8">
         <title>CppServer</title>
-        <meta lang="en-us">
-
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="style.css">
     </head>
 
     <body>
         <div id="main-page">
-            <h1>CppServer</h1>
+            <h1>CppServer2</h1>
 
-            <p id="text">
-                CppServer is a high-performance, minimal-overhead server framework written in C++, designed
-                for developers who need speed, control, and direct access to system-level resources. Built with bare-metal efficiency
-                in mind, it offers a lightweight and efficient architecture that’s ideal for production-grade applications where
-                performance and resource optimization are critical. The server is highly configurable, requiring minimal setup,
-                making it extremely easy to get started without sacrificing flexibility or power. It makes full use of Unix-based
-                system headers and functionality to provide low-level access and reliability, while maintaining a clean and concise
-                codebase that is easy to understand, extend, and maintain. Whether you're building microservices, embedded tools, or
-                custom networking protocols, CppServer offers a robust foundation that’s both intuitive and powerful, with performance
-                and simplicity at its core.
+            <p class="text">
+                CppServer2 is a high-performance, minimal-overhead server framework written in C++. Designed for developers who need speed, control, and direct access to system-level resources, it’s built with bare-metal efficiency in mind. 
+                The framework offers a lightweight architecture ideal for production-grade applications where performance and resource optimization are critical. 
+
+                CppServer2 is highly configurable and requires minimal setup, making it easy to get started without sacrificing flexibility or power. It leverages Unix-based system headers and functionality to ensure low-level access and reliability, all while maintaining a clean, concise codebase that's easy to understand, extend, and maintain.
+
+                Whether you're building microservices, embedded tools, or custom networking protocols, CppServer2 provides a robust foundation with performance and simplicity at its core.
             </p>
 
+            <h2>Features</h2>
+            <ul class="list">
+                <li><strong>ThreadPool:</strong> Utilizes a C++ thread pool to optimize multi-threading and boost performance.</li>
+                <li><strong>FileCache:</strong> Enables faster file access through smart caching.</li>
+                <li><strong>HTTPS with <a href="https://github.com/openssl/openssl" target="_blank" class="link">OpenSSL</a>:</strong> Supports encrypted connections to keep client data private.</li>
+            </ul>
+
             <h2>Source Code</h2>
-            <p id="text">
-                The CppServer framework is open-source and available on <a href="https://github.com/f3fe-hash/CppServer" id="link" target="_blank">GitHub</a>.<br>
-                If you find any bugs, feel free to <a href="mailto:f3fe5.unhash@gmail.com" id="link">email me</a> directly.
+            <p class="text">
+                The CppServer2 framework is open-source and available on 
+                <a href="https://github.com/f3fe-hash/CppServer" target="_blank" class="link">GitHub</a>.<br>
+                Found a bug? Feel free to <a href="mailto:f3fe5.unhash@gmail.com" class="link">email me</a> directly.
             </p>
 
             <div class="button-group">
-                <button onclick="window.open('https://github.com/f3fe-hash/CppServer2','_blank')" id="button">View Repository</button>
-                <button onclick="window.location.href='mailto:f3fe5.unhash@gmail.com'" id="button-secondary">Contact Me</button>
+                <button onclick="window.open('https://github.com/f3fe-hash/CppServer2','_blank')" class="button">View Repository</button>
+                <button onclick="window.location.href='mailto:f3fe5.unhash@gmail.com'" class="button-secondary">Contact Me</button>
             </div>
 
-            <p id="copyright">
-                &copy; Copyright 2025 by Brian Riff<br>
-            </p>
+            <footer>
+                <p>&copy; 2025 Brian Riff</p>
+            </footer>
         </div>
     </body>
 </html>
