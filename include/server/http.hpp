@@ -7,11 +7,12 @@
 #include <unordered_map>
 
 #include <atomic>
+#include <functional>
 
 #include "utils/utils.hpp"
 #include "io/file.hpp"
 
-using HTTPResponse = std::pair<std::string, size_t>;
+using HTTPResponse = std::string;
 
 typedef struct
 {
@@ -25,6 +26,8 @@ typedef struct
 
     std::string payload;
 } HTTPRequest;
+
+using HTTPCallback = std::function<HTTPResponse(const HTTPRequest&)>;
 
 class HTTPRequestParser
 {
@@ -50,24 +53,23 @@ public:
 
 class HTTPResponseGenerator
 {
-    static std::shared_ptr<FileCache> cache;
-
-    static inline HTTPRequestParser parser;
+    inline static HTTPRequestParser parser;
 
     static std::unordered_map<int, std::string> HTTPCodes;
 
+    inline static HTTPCallback callback;
+
 public:
-    HTTPResponseGenerator(std::shared_ptr<FileCache> cache);
+    HTTPResponseGenerator(HTTPCallback callback);
     ~HTTPResponseGenerator() = default;
 
-    _throw _wur
+    _throw _wur _const
     static inline
     HTTPResponse _generate_response(std::string_view data, std::string_view contentType, int errCode)
     {
         auto it = HTTPCodes.find(errCode);
-        const std::string_view msg = (it != HTTPCodes.end()) ? it->second : "Unknown";
+        const std::string& msg = (it != HTTPCodes.end()) ? it->second : "Unknown";
 
-        /* Generate the string. */
         std::string res;
         res.reserve(data.size() + 128);
         res += "HTTP/1.1 " + std::to_string(errCode) + " " + std::string(msg) + "\r\n";
@@ -76,7 +78,7 @@ public:
         res += "Connection: close\r\n\r\n";
         res += std::string(data);
 
-        return {std::move(res), res.size()};
+        return HTTPResponse(std::move(res));
     }
 
     //
@@ -86,29 +88,8 @@ public:
     static inline
     HTTPResponse generate_response(std::string_view request)
     {
-        HTTPRequest req = HTTPResponseGenerator::parser.parseRequest(request);
-
-        // Protect against ..
-        if (req.path.find("..") != std::string::npos)
-        {
-            std::string err = cache->readFile("site/err/403.html");
-            return HTTPResponseGenerator::_generate_response(err.empty() ? "<h1>403 Forbidden</h1>" : err, "text/html", 403);
-        }
-        
-        // Ensure proper path
-        if (req.path == "/" || req.path.empty())
-            req.path = "index.html";
-        else
-            req.path = req.path[0] == '/' ? req.path.substr(1) : req.path;
-
-        std::string data = cache->readFile("site/" + req.path);
-        if (data.empty())
-        {
-            std::string err = cache->readFile("site/err/404.html");
-            return HTTPResponseGenerator::_generate_response(err.empty() ? "<h1>404 Not Found</h1>" : err, "text/html", 404);
-        }
-        
-        return HTTPResponseGenerator::_generate_response(data,
-            HTTPResponseGenerator::parser.getMimeType(req.path), 200);
+        const HTTPRequest& req = HTTPResponseGenerator::parser.parseRequest(request);
+        return
+            HTTPResponseGenerator::callback(req);
     }
 };

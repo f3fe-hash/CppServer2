@@ -1,4 +1,4 @@
-#include "io/file.hpp"
+#include "server/io/file.hpp"
 
 FileCache::FileCache(int refresh_interval_seconds)
     : refresh_interval(refresh_interval_seconds), stop_flag(false)
@@ -81,4 +81,6 @@ void FileCache::loadFile(const std::string& path, FileCacheEntry& entry)
     entry.data = ss.str();
     entry.last_loaded = std::chrono::system_clock::now();
     entry.last_modified = fs::last_write_time(path);
+
+    _log << "Loaded file: " << std::filesystem::absolute(path) << std::endl;
 }

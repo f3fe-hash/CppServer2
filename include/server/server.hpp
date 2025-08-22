@@ -58,7 +58,7 @@ class Server
     inline static sockaddr_in servaddr;
 
     inline static bool running;
-    inline static std::atomic<HTTPResponseGenerator *> http;
+    inline static HTTPResponseGenerator&& http = HTTPResponseGenerator(nullptr);
 
     inline static std::shared_ptr<FileCache> cache;
 
@@ -73,10 +73,17 @@ class Server
     void handle_client(Client cli);
 
 public:
-    Server(std::string_view ip, const short port);
+    Server() = default;
+    Server(std::string_view ip, const short port, const HTTPCallback& callback);
     ~Server();
 
     _throw
     static
     void accept_clients();
+
+    _throw _wur _const
+    std::shared_ptr<FileCache> getCache();
+
+    _throw _wur _const
+    const HTTPResponseGenerator& getHTTP();
 };

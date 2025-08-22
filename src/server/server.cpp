@@ -1,10 +1,10 @@
-#include "server.hpp"
+#include "server/server.hpp"
 
 Log _log("log.log");
 
 ThreadPool Server::pool{3};
 
-Server::Server(std::string_view ip, const short port)
+Server::Server(std::string_view ip, const short port, const HTTPCallback& callback)
 {
     Server::running = true;
 
@@ -12,7 +12,7 @@ Server::Server(std::string_view ip, const short port)
     std::cout << "\033[?25l" << std::flush;
 
     Server::cache = std::make_shared<FileCache>(CACHE_SIZE);
-    Server::http  = new HTTPResponseGenerator(std::move(Server::cache));
+    Server::http  = HTTPResponseGenerator(callback);
 
     /* Initialize OpenSSL. */
 #ifdef USE_HTTPS
@@ -200,12 +200,12 @@ void Server::handle_client(Client cli)
     }
 
     // Use raw buffer instead of constructing string_view
-    auto d = Server::http.load()->generate_response({buff, static_cast<size_t>(size)});
+    auto d = Server::http.generate_response({buff, static_cast<size_t>(size)});
 
 #ifdef USE_HTTPS
     if (https)
     {
-        if (_unlikely(SSL_write(cli.ssl, d.first.c_str(), d.second) <= 0))
+        if (_unlikely(SSL_write(cli.ssl, d.c_str(), d.size()) <= 0))
             err("Failed to send data via SSL");
 
         int shutdown_ret = SSL_shutdown(cli.ssl);
@@ -216,13 +216,23 @@ void Server::handle_client(Client cli)
     }
     else
     {
-        if (_unlikely(send(cli.connfd, d.first.c_str(), d.second, 0) <= 0))
+        if (_unlikely(send(cli.connfd, d.c_str(), d.size(), 0) <= 0))
             err("Failed to send data.");
     }
 #else
-    if (_unlikely(send(cli.connfd, d.first.c_str(), d.second, 0) <= 0))
+    if (_unlikely(send(cli.connfd, d.c_str(), d.size(), 0) <= 0))
         err("Failed to send data.");
 #endif
 
     close(cli.connfd);
+}
+
+std::shared_ptr<FileCache> Server::getCache()
+{
+    return this->cache;
+}
+
+const HTTPResponseGenerator& Server::getHTTP()
+{
+    return this->http;
 }

@@ -39,7 +39,7 @@ LIBS        := -lssl -lcrypto
 SRC_DIR     := src
 INCLUDE_DIR := include
 BUILD_DIR   := build
-TARGET      := server
+TARGET      := cppserver
 
 SRCS := $(shell find $(SRC_DIR) -name '*.cpp')
 OBJS := $(SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.cpp.o)
@@ -62,9 +62,8 @@ RESET  := \033[0m
 all: $(BUILD_DIR)/$(TARGET)
 
 $(BUILD_DIR)/$(TARGET): $(OBJS) | $(DIRS)
-	@printf "$(BLUE)  LD\tLinking files...$(RESET)"
+	@printf "$(BLUE)  LD\tLinking files\n$(RESET)"
 	@$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) $(OBJS) -o $@ $(LIBS)
-	@printf "$(BLUE)Done$(RESET)\n"
 ifeq ($(HTTPS_ENABLED),0)
 	@printf "$(RED)  WARN\tHTTPS is disabled.$(RESET)\n"
 else
@@ -73,9 +72,8 @@ endif
 
 $(BUILD_DIR)/%.cpp.o: $(SRC_DIR)/%.cpp | $(DIRS)
 	@mkdir -p $(dir $@)
-	@printf "$(GREEN)  CXX\tBuilding file $@...$(RESET)"
+	@printf "$(GREEN)  CXX\tBuilding file $@\n$(RESET)"
 	@$(CXX) $(CXXFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
-	@printf "$(GREEN)Done\n$(RESET)"
 
 $(DIRS):
 	@mkdir -p $(DIRS)

@@ -1,6 +1,4 @@
-#include "http.hpp"
-
-std::shared_ptr<FileCache> HTTPResponseGenerator::cache;
+#include "server/http.hpp"
 
 std::unordered_map<int, std::string> HTTPResponseGenerator::HTTPCodes =
 {
@@ -21,6 +19,7 @@ std::unordered_map<std::string, std::string> HTTPRequestParser::mimeTypes =
     {".pdf",  "application/pdf"},
     {".ppt",  "application/vnd.ms-powerpoint"},
 
+    // Archives
     {".gz",  "application/gzip"},
     {".rar",  "application/vnd.rar"},
     {".zip", "application/zip"},
@@ -53,9 +52,9 @@ std::unordered_map<std::string, std::string> HTTPRequestParser::mimeTypes =
     {".mov", "video/quicktime"},
 };
 
-HTTPResponseGenerator::HTTPResponseGenerator(std::shared_ptr<FileCache> cache)
+HTTPResponseGenerator::HTTPResponseGenerator(HTTPCallback callback)
 {
-    HTTPResponseGenerator::cache = cache;
+    HTTPResponseGenerator::callback = callback;
 }
 
 HTTPRequest HTTPRequestParser::parseRequest(std::string_view req)
