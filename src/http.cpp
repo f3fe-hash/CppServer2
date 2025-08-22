@@ -10,19 +10,47 @@ std::unordered_map<int, std::string> HTTPResponseGenerator::HTTPCodes =
 
 std::unordered_map<std::string, std::string> HTTPRequestParser::mimeTypes =
 {
-    {".html", "text/html"},
-    {".htm", "text/html"},
-    {".css", "text/css"},
-    {".js", "application/javascript"},
+    // Applications
+    {".js",   "application/javascript"},
     {".json", "application/json"},
-    {".png", "image/png"},
-    {".jpg", "image/jpeg"},
-    {".jpeg", "image/jpeg"},
-    {".gif", "image/gif"},
-    {".svg", "image/svg+xml"},
-    {".ico", "image/x-icon"},
-    {".txt", "text/plain"},
     {".wasm", "application/wasm"},
+    
+    // Documents
+    {".doc",  "application/msword"},
+    {".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+    {".pdf",  "application/pdf"},
+    {".ppt",  "application/vnd.ms-powerpoint"},
+
+    {".gz",  "application/gzip"},
+    {".rar",  "application/vnd.rar"},
+    {".zip", "application/zip"},
+
+    // Audio
+    {".midi", "audio/midi"},
+    {".mid",  "audio/midi"},
+    {".mp3",  "audio/mp3"},
+    {".wav",  "audio/wav"},
+
+    // Images
+    {".gif",  "image/gif"},
+    {".ico",  "image/x-icon"},
+    {".jpg",  "image/jpeg"},
+    {".jpeg", "image/jpeg"},
+    {".png",  "image/png"},
+    {".svg",  "image/svg+xml"},
+    {".webm", "image/webm"},
+
+    // Text
+    {".css",  "text/css"},
+    {".csv",  "text/csv"},
+    {".html", "text/html"},
+    {".htm",  "text/html"},
+    {".txt",  "text/plain"},
+
+    // Video
+    {".mp4", "video/mp4"},
+    {".avi", "video/x-msvideo"},
+    {".mov", "video/quicktime"},
 };
 
 HTTPResponseGenerator::HTTPResponseGenerator(std::shared_ptr<FileCache> cache)
